@@ -124,28 +124,19 @@ class BrainBit(QMainWindow):
             if file_path:
                 if file_path.endswith('.edf'):
                     # Cargar el archivo .edf
-                    raw_data = mne.io.read_raw_edf(file_path, preload=True, stim_channel='auto', verbose='error')
-
-                    # Obtener los datos en formato de matriz numpy
-                    datos = raw_data.get_data()
+                    self.raw_data = mne.io.read_raw_edf(file_path, preload=True, stim_channel='auto', verbose='DEBUG')
 
                     # Aplicar un filtro después de cargar los datos
-                    raw_data.filter(l_freq=0.1, h_freq=100.0)
+                    self.raw_data.filter(l_freq=0.1, h_freq=100.0)
                     
                     # Obtener los nombres de los canales
-                    nombres_canales = raw_data.ch_names
-
-                    # Crear un DataFrame de pandas
-                    self.df = pd.DataFrame(datos.T, columns=nombres_canales)
-
-                    # Convertir los nombres de las columnas a minúsculas y eliminar espacios en blanco
-                    self.df.columns = self.df.columns.str.upper().str.strip()
+                    nombres_canales = self.raw_data.ch_names
 
                     self.chart_selector.setEnabled(True)
                     self.chart_selector.clear()
 
                     # Conservar los nombres con la primera letra en mayúscula en el ComboBox
-                    self.chart_selector.addItems([col for col in self.df.columns])
+                    self.chart_selector.addItems([col for col in nombres_canales])
 
                     self.amplitude_button.setChecked(False)
                     self.voltage_button.setChecked(False)
@@ -170,7 +161,7 @@ class BrainBit(QMainWindow):
             self.chart_selector.setEditText("Seleccione una columna")  # Restaurar el texto "Seleccione una columna"
 
     def plot_chart(self):
-        if self.df is not None:
+        if self.raw_data is not None:
             self.selected_column = self.chart_selector.currentText().upper()
             if self.selected_column and self.selected_column != "Seleccione una columna":
                 self.figure.clear()
@@ -178,19 +169,21 @@ class BrainBit(QMainWindow):
 
                 try:
                     if self.amplitude_button.isChecked():
-                        ax.plot(self.df.index, self.df[self.selected_column])
+
+                        # Crear un DataFrame de pandas
+                        df = pd.DataFrame(self.raw_data.get_data().T, columns=self.raw_data.ch_names)
+                        ax.plot(df.index, df[self.selected_column])
                         ax.set(xlabel='Muestra', ylabel='Amplitud', title=f'Datos del canal {self.selected_column}')
                         ax.legend()
 
                     elif self.voltage_button.isChecked():
-                        if self.selected_column in self.df.columns:  
-                            voltage_data = pd.to_numeric(self.df[self.selected_column])
-                            ax.plot(tiempo, voltage_data, label=self.selected_column.upper(), color='#2ecc71')
-                            ax.set(xlabel='Tiempo (s)', ylabel='Voltaje (uV)', title='Voltaje vs Tiempo')
-                            ax.legend()
-                            ax.set_xlim([8, 30])  
-                        else:
-                            raise ValueError(f"La columna '{self.selected_column}' no está presente en el DataFrame.")#
+
+                        df = pd.DataFrame(data=self.raw_data.get_data().T, index=self.raw_data.times.T, columns=self.raw_data.ch_names)
+                        df_subset = df[df.index < 10]
+                        ax.plot(df_subset.index, df_subset[self.selected_column])
+                        ax.set(xlabel='Tiempo (ms)', ylabel='Amplitud', title=f'Datos del canal {self.selected_column}')
+                        ax.legend()
+
                         
                 except ValueError as e:
                     QMessageBox.critical(self, 'Error', f"Error al procesar las columnas: {str(e)}")
