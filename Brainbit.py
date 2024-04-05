@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import mne
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QVBoxLayout, QWidget, QComboBox, QPushButton, \
-    QMessageBox, QHBoxLayout, QRadioButton, QButtonGroup, QLabel, QLineEdit, QDockWidget, QSizePolicy
+    QMessageBox, QHBoxLayout, QRadioButton, QButtonGroup, QLabel, QLineEdit
 from PyQt5.QtGui import QCursor
 from PyQt5.QtCore import Qt, QTranslator
 
@@ -81,24 +81,50 @@ class BrainBit(QMainWindow):
             self.chart_selector.setToolTip("Selecciona la columna para visualizar en el gráfico")  # Agregar tooltip
             main_layout.addWidget(self.chart_selector)
 
-            # Selector de item max
+            # Container para seleccion de rango min y max
             item_layout = QVBoxLayout()
             item_container = QHBoxLayout()
 
-            self.item_max_label = QLabel("Test")
-            item_container.addWidget(self.item_max_label)
+            self.tiempo_min_label = QLabel("Tiempo minimo (ms): ")
+            self.tiempo_min_text = QLineEdit()
+            self.tiempo_min_text.setInputMask("000")
+            self.tiempo_min_text.setToolTip("Entre con el tiempo minimo para el grafico (ms)")  # Agregar tooltip
 
-            self.item_max_text = QLineEdit()
-            item_container.addWidget(self.item_max_text)
+            self.tiempo_max_label = QLabel("Tiempo maximo (ms): ")
+            self.tiempo_max_text = QLineEdit()
+            self.tiempo_max_text.setInputMask("000")
+            self.tiempo_max_text.setToolTip("Entre con el tiempo maximo para el grafico (ms)")  # Agregar tooltip
 
-            self.item_max_text.returnPressed.connect(self.plot_chart)
+            self.frecuencia_min_label = QLabel("Frequencia minima (Hz): ")
+            self.frecuencia_min_text = QLineEdit()
+            self.frecuencia_min_text.setInputMask("000")
+            self.frecuencia_min_text.setToolTip("Entre con la frecuencia minima para el grafico (Hz)")  # Agregar tooltip
+
+            self.frecuencia_max_label = QLabel("Frequencia maxima (Hz): ")
+            self.frecuencia_max_text = QLineEdit()
+            self.frecuencia_max_text.setInputMask("000")
+            self.frecuencia_max_text.setToolTip("Entre con la frecuencia maxima para el grafico (Hz)")  # Agregar tooltip
+
+            item_container.addWidget(self.tiempo_min_label)
+            item_container.addWidget(self.tiempo_min_text)
+            item_container.addWidget(self.tiempo_max_label)
+            item_container.addWidget(self.tiempo_max_text)
+            item_container.addWidget(self.frecuencia_min_label)
+            item_container.addWidget(self.frecuencia_min_text)            
+            item_container.addWidget(self.frecuencia_max_label)
+            item_container.addWidget(self.frecuencia_max_text)
+
+            self.tiempo_min_text.returnPressed.connect(self.return_pressed)
+            self.tiempo_max_text.returnPressed.connect(self.return_pressed)
+            self.frecuencia_min_text.returnPressed.connect(self.return_pressed)
+            self.frecuencia_max_text.returnPressed.connect(self.return_pressed)
+            self.range_changed = False
 
             item_layout.addLayout(item_container)
             main_layout.addLayout(item_layout)
 
-            self.item_max_label.setVisible(False)
-            self.item_max_text.setVisible(False)
-
+            self.hide_item_range()
+    
             # Configuración de la figura de Matplotlib
             self.figure = Figure()
             self.canvas = FigureCanvas(self.figure)
@@ -141,6 +167,26 @@ class BrainBit(QMainWindow):
             self.chart_type_group.buttonClicked.connect(self.plot_chart)
             self.chart_selector.currentIndexChanged.connect(self.plot_chart)
 
+    def hide_item_range(self):
+        self.hide_tiempo_range()
+        self.hide_frecuencia_range()
+
+    def hide_frecuencia_range(self):
+        self.frecuencia_min_label.hide()
+        self.frecuencia_min_text.hide()
+        self.frecuencia_max_label.hide()
+        self.frecuencia_max_text.hide()
+
+    def hide_tiempo_range(self):
+        self.tiempo_min_label.hide()
+        self.tiempo_min_text.hide()
+        self.tiempo_max_label.hide()
+        self.tiempo_max_text.hide()
+
+    def return_pressed(self):
+        self.range_changed = True
+        self.plot_chart()
+
     def load_edf(self):
 
         try:
@@ -176,6 +222,8 @@ class BrainBit(QMainWindow):
                     self.tiempo_button.setEnabled(True)
                     self.frequencia_button.setEnabled(True)
                     self.chart_type_group.setExclusive(True)
+                    
+                    self.hide_item_range()
     
                 else:
                     raise Exception("El archivo seleccionado no es un archivo EDF.")
@@ -202,8 +250,7 @@ class BrainBit(QMainWindow):
                 try:
                     if self.muestra_button.isChecked():
 
-                        self.item_max_label.setVisible(False)
-                        self.item_max_text.setVisible(False)
+                        self.hide_item_range()
 
                         # Crear un DataFrame de pandas
                         df = pd.DataFrame(self.raw_data.get_data().T, columns=self.raw_data.ch_names)
@@ -213,37 +260,51 @@ class BrainBit(QMainWindow):
 
                     elif self.tiempo_button.isChecked():
 
-                        self.item_max_label.setVisible(True)
-                        self.item_max_text.setVisible(True)
-                        self.item_max_label.setText("Tiempo maximo (ms): ")
-                        if not self.item_max_text.text():
-                            self.item_max_text.setText("10") # Atribui valor estandar 
-                        self.item_max_text.setInputMask("000")
-                        self.item_max_text.setToolTip("Entre con el tiempo maximo para el grafico (ms)")  # Agregar tooltip
+                        self.tiempo_min_label.show()
+                        self.tiempo_min_text.show()
+                        self.tiempo_max_label.show()
+                        self.tiempo_max_text.show()
+                        self.hide_frecuencia_range()
 
-                        tiempo_max_abs = max(self.raw_data.times.T)
-                        tiempo_max_value = int(self.item_max_text.text())
-                        if tiempo_max_value > tiempo_max_abs:
+                        tiempo_max_abs = int(max(self.raw_data.times.T))
+                        if not self.range_changed:
+                            self.tiempo_min_text.setText("0")
+                            self.tiempo_max_text.setText(str(tiempo_max_abs)) # Atribui valor estandar 
+                        self.range_changed = False
+
+                        tiempo_min_value = int(self.tiempo_min_text.text())
+                        tiempo_max_value = int(self.tiempo_max_text.text())
+                        if tiempo_min_value > tiempo_max_abs or tiempo_max_value > tiempo_max_abs:
                             raise ValueError(f"Valor maximo para el tiempo (ms) es de {tiempo_max_abs} ms.")
                         
-                        df = pd.DataFrame(data=self.raw_data.get_data().T, index=self.raw_data.times.T, columns=self.raw_data.ch_names)
-                        df_subset = df[df.index < int(self.item_max_text.text())]
+                        if tiempo_min_value >= tiempo_max_value:
+                            raise ValueError("Tiempo minimo debe ser menor que tiempo maximo")
                         
+                        df = pd.DataFrame(data=self.raw_data.get_data().T, index=self.raw_data.times.T, columns=self.raw_data.ch_names)
+                        df_subset = df[(df.index > int(self.tiempo_min_text.text())) & (df.index < int(self.tiempo_max_text.text()))]
                         ax.plot(df_subset.index, df_subset[self.selected_column])
                         ax.set(xlabel='Tiempo (ms)', ylabel='Amplitud', title=f'Datos del canal {self.selected_column}')
 
                     elif self.frequencia_button.isChecked():
 
-                        self.item_max_label.setVisible(True)
-                        self.item_max_text.setVisible(True)
-                        self.item_max_label.setText("Frequencia maxima (Hz): ")
-                        if not self.item_max_text.text():
-                            self.item_max_text.setText("50") # Atribui valor estandar 
-                        self.item_max_text.setInputMask("000")
-                        self.item_max_text.setToolTip("Entre con la frecuencia maxima para el grafico (Hz)")  # Agregar tooltip
+                        self.hide_tiempo_range()
+                        self.frecuencia_min_label.show()
+                        self.frecuencia_min_text.show()
+                        self.frecuencia_max_label.show()
+                        self.frecuencia_max_text.show()
 
-                        frequencia_max_value = int(self.item_max_text.text())
-                        self.raw_data.plot_psd(ax=ax, fmax=frequencia_max_value, n_fft=2048, picks=self.selected_column, show=False, color="#2ecc71")
+                        if not self.range_changed:
+                            self.frecuencia_min_text.setText("0")
+                            self.frecuencia_max_text.setText("50") # Atribui valor estandar 
+                        self.range_changed = False
+
+                        frequencia_min_value = int(self.frecuencia_min_text.text())
+                        frequencia_max_value = int(self.frecuencia_max_text.text())
+
+                        if frequencia_min_value >= frequencia_max_value:
+                            raise ValueError("Frecuencia minima debe ser menor que frecuencia maxima")
+                    
+                        self.raw_data.plot_psd(ax=ax, fmin=frequencia_min_value, fmax=frequencia_max_value, n_fft=2048, picks=self.selected_column, show=False, color="#2ecc71")
                         plt.title(f'Potencia espectral para el canal {self.selected_column}')
                         ax.set(xlabel='Frecuencia (Hz)', ylabel='Amplitud', title=f'Amplitud vs Frecuencia for {self.selected_column}')
                         ax.legend()
@@ -252,7 +313,6 @@ class BrainBit(QMainWindow):
                     QMessageBox.critical(self, 'Error', f"Error al procesar las columnas: {str(e)}")
 
                 self.canvas.draw()
-
 
     def show_help(self):
         QMessageBox.information(self, 'Ayuda', "Bienvenido al Analizador de Ondas EEG - Transformada de Fourier.\n\n"
