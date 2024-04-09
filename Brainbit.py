@@ -31,6 +31,9 @@ class BrainBit(QMainWindow):
             y = (screen_geometry.height() - self.height()) // 2
             self.move(x, y)
 
+            plt.rcParams.update({'font.size': 20, 'font.weight': 'normal'})
+            plt.rcParams['lines.color'] = color="#060270"
+
             # Contenedor principal
             main_layout = QVBoxLayout()
 
@@ -153,7 +156,6 @@ class BrainBit(QMainWindow):
             central_widget.setLayout(main_layout)
             self.setCentralWidget(central_widget)
 
-            self.df = None
             self.selected_column = None
 
             # Configuración de botones y señales
@@ -254,7 +256,7 @@ class BrainBit(QMainWindow):
 
                         # Crear un DataFrame de pandas
                         df = pd.DataFrame(self.raw_data.get_data().T, columns=self.raw_data.ch_names)
-                        ax.plot(df.index, df[self.selected_column], color='#3498db')
+                        ax.plot(df.index, df[self.selected_column])
                         ax.set(xlabel='Muestra', ylabel='Amplitud', title=f'Datos del canal {self.selected_column}')
                         ax.legend()
 
@@ -304,8 +306,7 @@ class BrainBit(QMainWindow):
                         if frequencia_min_value >= frequencia_max_value:
                             raise ValueError("Frecuencia minima debe ser menor que frecuencia maxima")
                     
-                        self.raw_data.plot_psd(ax=ax, fmin=frequencia_min_value, fmax=frequencia_max_value, n_fft=2048, picks=self.selected_column, show=False, color="#2ecc71")
-                        plt.title(f'Potencia espectral para el canal {self.selected_column}')
+                        self.raw_data.plot_psd(ax=ax, fmin=frequencia_min_value, fmax=frequencia_max_value, n_fft=2048, picks=self.selected_column, show=False)
                         ax.set(xlabel='Frecuencia (Hz)', ylabel='Amplitud', title=f'Amplitud vs Frecuencia for {self.selected_column}')
                         ax.legend()
                         
