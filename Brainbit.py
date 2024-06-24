@@ -31,7 +31,7 @@ class BrainBit(QMainWindow):
             y = (screen_geometry.height() - self.height()) // 2
             self.move(x, y)
 
-            plt.rcParams.update({'font.size': 20, 'font.weight': 'normal'})
+            plt.rcParams.update({'font.size': 10, 'font.weight': 'normal'})
             plt.rcParams['lines.color'] = color="#060270"
 
             # Contenedor principal
@@ -53,19 +53,24 @@ class BrainBit(QMainWindow):
             self.muestra_button = QRadioButton("Amplitud vs Muestra", self)
             self.tiempo_button = QRadioButton("Amplitud vs Tiempo", self)
             self.frequencia_button = QRadioButton("Amplitud vs Frequencia", self)
+            self.amplitud_button = QRadioButton("Amplitud vs Tiempo y Frequencia", self)
+
             self.chart_type_group.addButton(self.muestra_button)
             self.chart_type_group.addButton(self.tiempo_button)
             self.chart_type_group.addButton(self.frequencia_button)
+            self.chart_type_group.addButton(self.amplitud_button)
             self.chart_type_group.setExclusive(True)
 
             # Aplicar estilos a los radio buttons
             self.muestra_button.setStyleSheet("color: black; font-weight: bold;")  # Ajusta según tus preferencias
             self.tiempo_button.setStyleSheet("color: black; font-weight: bold;")  # Ajusta según tus preferencias
             self.frequencia_button.setStyleSheet("color: black; font-weight: bold;")  # Ajusta según tus preferencias
+            self.amplitud_button.setStyleSheet("color: black; font-weight: bold;")  # Ajusta según tus preferencias
 
             button_container.addWidget(self.muestra_button)
             button_container.addWidget(self.tiempo_button)
             button_container.addWidget(self.frequencia_button)
+            button_container.addWidget(self.amplitud_button)
 
             # Botón de ayuda
             self.help_button = QPushButton(icon('fa.question-circle'), ' Ayuda', self)
@@ -108,6 +113,18 @@ class BrainBit(QMainWindow):
             self.frecuencia_max_text.setInputMask("000")
             self.frecuencia_max_text.setToolTip("Entre con la frecuencia maxima para el grafico (Hz)")  # Agregar tooltip
 
+            self.loading_chart_label = QLabel("Cargando el grafico. Espere por favor!")
+            self.loading_chart_label.setFixedHeight(25)
+            font1 = self.loading_chart_label.font()
+            font1.setBold(True)
+            font1.setPointSize(8)
+            self.loading_chart_label.setFont(font1)
+
+            load_layout = QVBoxLayout()
+            load_layout.addWidget(self.loading_chart_label)
+            self.loading_chart_label.setAlignment(Qt.AlignCenter)
+            self.loading_chart_label.hide()
+
             item_container.addWidget(self.tiempo_min_label)
             item_container.addWidget(self.tiempo_min_text)
             item_container.addWidget(self.tiempo_max_label)
@@ -125,7 +142,7 @@ class BrainBit(QMainWindow):
 
             item_layout.addLayout(item_container)
             main_layout.addLayout(item_layout)
-
+            main_layout.addLayout(load_layout)
             self.hide_item_range()
     
             # Configuración de la figura de Matplotlib
@@ -142,6 +159,7 @@ class BrainBit(QMainWindow):
             self.toolbar.actions()[6].setToolTip("Configurar Subplots")
             self.toolbar.actions()[7].setToolTip("Personalizar ejes, curva e imagen")
             self.toolbar.actions()[9].setToolTip("Guardar")
+
 
             main_layout.addWidget(self.toolbar)
             main_layout.addWidget(self.canvas)
@@ -165,6 +183,7 @@ class BrainBit(QMainWindow):
             self.muestra_button.setEnabled(False)
             self.tiempo_button.setEnabled(False)
             self.frequencia_button.setEnabled(False)
+            self.amplitud_button.setEnabled(False)
             self.chart_selector.setEnabled(False)
             self.chart_type_group.buttonClicked.connect(self.plot_chart)
             self.chart_selector.currentIndexChanged.connect(self.plot_chart)
@@ -172,7 +191,7 @@ class BrainBit(QMainWindow):
     def hide_item_range(self):
         self.hide_tiempo_range()
         self.hide_frecuencia_range()
-
+        
     def hide_frecuencia_range(self):
         self.frecuencia_min_label.hide()
         self.frecuencia_min_text.hide()
@@ -223,6 +242,7 @@ class BrainBit(QMainWindow):
                     self.muestra_button.setEnabled(True)
                     self.tiempo_button.setEnabled(True)
                     self.frequencia_button.setEnabled(True)
+                    self.amplitud_button.setEnabled(True)
                     self.chart_type_group.setExclusive(True)
                     
                     self.hide_item_range()
@@ -238,6 +258,7 @@ class BrainBit(QMainWindow):
             self.muestra_button.setEnabled(False)
             self.tiempo_button.setEnabled(False)
             self.frequencia_button.setEnabled(False)
+            self.amplitud_button.setEnabled(False)
             self.figure.clear()  # Limpiar la figura al cargar un nuevo EDF
             self.canvas.draw()
             self.chart_selector.setEditText("Seleccione una columna")  # Restaurar el texto "Seleccione una columna"
@@ -309,6 +330,68 @@ class BrainBit(QMainWindow):
                         self.raw_data.plot_psd(ax=ax, fmin=frequencia_min_value, fmax=frequencia_max_value, n_fft=2048, picks=self.selected_column, show=False)
                         ax.set(xlabel='Frecuencia (Hz)', ylabel='Amplitud', title=f'Amplitud vs Frecuencia for {self.selected_column}')
                         ax.legend()
+                    
+                    elif self.amplitud_button.isChecked():
+
+                        self.tiempo_min_label.show()
+                        self.tiempo_min_text.show()
+                        self.tiempo_max_label.show()
+                        self.tiempo_max_text.show()
+                        self.hide_frecuencia_range()
+
+                        tiempo_max_abs = int(max(self.raw_data.times.T))
+                        tiempo_max = min(50, tiempo_max_abs)
+                        if not self.range_changed:
+                            self.tiempo_min_text.setText("0")
+                            self.tiempo_max_text.setText(str(tiempo_max)) # Atribui valor estandar 
+                        self.range_changed = False
+
+                        tiempo_min_value = int(self.tiempo_min_text.text())
+                        tiempo_max_value = int(self.tiempo_max_text.text())
+                        if tiempo_min_value > tiempo_max_abs or tiempo_max_value > tiempo_max_abs:
+                            raise ValueError(f"Valor maximo para el tiempo (ms) es de {tiempo_max_abs} ms.")
+                        if tiempo_min_value >= tiempo_max_value:
+                            raise ValueError("Tiempo minimo debe ser menor que tiempo maximo.")
+                        if tiempo_max_value - tiempo_min_value > 80:
+                            raise ValueError("Rango maximo para este grafico es de 80 ms.")
+
+                        self.loading_chart_label.show()
+                        self.loading_chart_label.repaint()
+
+                        # Promediar los datos a lo largo del tiempo
+                        datos_promediados = np.mean(self.raw_data.get_data(), axis=0)
+
+                        # Calcular la transformada de Fourier de los datos promediados
+                        fft_values = np.fft.fft(datos_promediados)
+
+                        # Obtener las frecuencias correspondientes
+                        frecuencias = np.fft.fftfreq(datos_promediados.shape[0], d=1/self.raw_data.info['sfreq'])
+
+                        puntos_tiempo_min = int(tiempo_min_value * self.raw_data.info['sfreq'])
+                        puntos_tiempo_max = int(tiempo_max_value * self.raw_data.info['sfreq'])
+
+                        # Limitar el rango de frecuencias y el número de puntos en el tiempo
+                        frecuencias_limitadas = frecuencias[puntos_tiempo_min:puntos_tiempo_max]
+                        tiempo_limitado = self.raw_data.times[puntos_tiempo_min:puntos_tiempo_max]
+
+                        # Expandir fft_values a una matriz bidimensional y repetir para cada frecuencia
+                        fft_values_expandido = np.abs(fft_values[puntos_tiempo_min:puntos_tiempo_max])
+                        fft_values_expandido = np.repeat(fft_values_expandido[:, np.newaxis], len(frecuencias_limitadas), axis=1)
+
+                        # Crear una malla para los datos
+                        X, Y = np.meshgrid(tiempo_limitado, frecuencias_limitadas)
+
+                        # Graficar los datos
+                        ax = self.figure.add_subplot(111, projection='3d')
+                        ax.plot_surface(X, Y, fft_values_expandido.T, cmap='jet')
+
+                        # Etiquetas y título
+                        ax.set_xlabel('Tiempo (s)')
+                        ax.set_ylabel('Frecuencia (Hz)')
+                        ax.set_zlabel('Amplitud de Fourier')
+                        ax.set_title('Amplitud de Fourier en función del tiempo y la frecuencia')    
+
+                        self.loading_chart_label.hide()            
                         
                 except ValueError as e:
                     QMessageBox.critical(self, 'Error', f"Error al procesar las columnas: {str(e)}")
